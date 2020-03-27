@@ -1,0 +1,303 @@
+﻿
+@{
+    ViewBag.Title = "To Do Tasks";
+}
+
+<link href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css" rel="stylesheet" />
+
+<h2>To Do Tasks</h2>
+
+<div class="container">
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-md-12">
+                    <input type="button" id="btnAddToDo" class="btn btn-primary" value="Add" data-toggle="modal" />
+                </div>
+                <div class="col-md-12">
+                    <table id="tblTasks" class="display table table-bordered" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Serial</th>
+                                <th>Title</th>
+                                <th>Due Date</th>
+                                <th>Mark as done</th>
+                                <th>Edit</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" id="hdnTodoTaskId" value="" />
+
+<div class="modal fade" id="modalAddTask" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Add Task</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body container">
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-horizontal">
+                            <div class="form-group">
+                                <label for="txtTitle" class="col-form-label">Title:</label>
+                                <input type="text" class="form-control" id="txtTitle" />
+                            </div>
+
+                            <div class="form-group" id="groupDuedate">
+                                <label for="txtDueDate" class="col-form-label">Due Date:</label>
+                                <input type="date" class="form-control" id="txtDueDate" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" id="btnSaveTask" class="btn btn-primary">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section scripts{
+    <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+
+    <!-- Optional: include a polyfill for ES6 Promises for IE11 -->
+    <script src="https://cdn.jsdelivr.net/npm/promise-polyfill"></script>
+
+
+    <script>
+        $(function () {
+         var table=  $("#tblTasks").DataTable({
+                "ajax": {
+                    "url":'@Url.Action("GetTodoTasks","Home")',
+                    "type": "POST",
+                    "dataType": "json"
+                },
+                "columns": [
+                    {"data":"Title","name":"Title"},
+                    {"data":"Title","name":"Title"},
+                    {
+                        "data": "strDueDate", "name": "strDueDate"
+                    },
+                    {
+                        data: "IsDone",
+                        render: function (data, type, row) {
+
+                            if (type === 'display') {
+                                if (data) {
+                                    return '<input type="checkbox" disabled="disabled" checked="checked" class="editor-active">';
+                                } else {
+                                    return '<input type="checkbox" class="editor-active" onchange="markAsDone(' + row.ToDoTaskId + ')">';
+                                }
+
+                            }
+                            return data;
+                        },
+                        className: "dt-body-center"
+                    },
+                    {
+                        data: "ToDoTaskId",
+                        render: function (data, type, row) {
+                            if (type === 'display' && row.IsDone == false) {
+                                return '<input type="button" class="btn btn-default edit-to-do" onclick="editTask(' + data + ')" taskId="' + data + '" value="Edit">';
+                            }
+                            return "";
+                        },
+                        className: "dt-body-center"
+                    },
+                    {
+                        data: "ToDoTaskId",
+                        render: function (data, type, row) {
+                            if (type === 'display' && row.IsDone == false) {
+                                return '<input type="button" class="btn btn-danger delete-to-do" onclick="deleteTask('+data+')" taskId="' + data + '" value="Delete">';
+                            }
+                            return "";
+                        },
+                        className: "dt-body-center"
+                    }
+                ],
+                "serverSide": "true",
+                "order": [0, "asc"],
+                "processing": "true",
+
+         });
+
+            table.on('order.dt search.dt', function () {
+                table.column(0, { search: 'applied', order: 'applied' }).nodes().each(function (cell, i) {
+                    cell.innerHTML = i + 1;
+                });
+            }).draw();
+
+            $("#btnAddToDo").click(function () {
+                $("#hdnTodoTaskId").val("");
+                $("#txtTitle").val("");
+                $("#groupDuedate").show();
+                $("#exampleModalLabel").html("Add Task");
+                $("#modalAddTask").modal("show");
+            })
+
+            $("#btnSaveTask").click(function () {
+
+                if (task.validate()) {
+                    task.save();
+                }
+            });
+
+
+        });
+
+        function editTask(taskId) {
+            $("#hdnTodoTaskId").val(taskId);
+            $("#groupDuedate").hide();
+            $("#exampleModalLabel").html("Edit Task");
+            $("#modalAddTask").modal("show");
+
+            var data={
+                taskId: taskId
+            };
+
+            $.ajax({
+                url: '@Url.Action("GetToDoTaskById","Home")',
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify(data),
+                contentType: "application/json; charset=utf-8;",
+                success: function (result) {
+                    $("#txtTitle").val(result.Title);
+                }
+            });
+        }
+
+
+        function deleteTask(taskId) {
+            swal({
+                title: "Are you sure?",
+                text: "are you sure that you want to delete selected task!",
+                icon: "warning",
+                buttons: true,
+                dangerMode: true,
+            })
+                .then((willDelete) => {
+                    if (willDelete) {
+
+                        var data = {
+                            taskId: taskId
+                        };
+
+                        $.ajax({
+                url: '@Url.Action("DeleteToDoTask","Home")',
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify(data),
+                contentType: "application/json; charset=utf-8;",
+                            success: function (result) {
+                                $('#tblTasks').DataTable().ajax.reload();
+                    swal("Selected task has been deleted!", {
+                        icon: "success",
+                    });
+                }
+            });
+                    } else {
+                        swal("Selected task is not deleted!");
+                    }
+                });
+
+        }
+
+        function markAsDone(taskId) {
+            swal({
+                title: "Are you sure?",
+                text: "are you sure that you want to mark selected task as done!",
+                icon: "warning",
+                buttons: true,
+                dangerMode: true,
+            })
+                .then((willDelete) => {
+                    if (willDelete) {
+
+                        var data = {
+                            taskId: taskId
+                        };
+
+                        $.ajax({
+                url: '@Url.Action("MarkTaskAsDone","Home")',
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify(data),
+                contentType: "application/json; charset=utf-8;",
+                            success: function (result) {
+                                $('#tblTasks').DataTable().ajax.reload();
+                    swal("Selected task has been marked as done!", {
+                        icon: "success",
+                    });
+                }
+            });
+                    } else {
+                        swal("Selected task is not done yet!");
+                    }
+                });
+        }
+
+        var task = {
+            validate: function () {
+                if ($("#txtTitle").val() == "") {
+                    alert("title is required");
+                    return false;
+                }
+                if ($("#txtDueDate").val() == "" && $("#hdnTodoTaskId").val()=="") {
+                    alert("due date is required");
+                    return false;
+                }
+                return true;
+            },
+            save: function () {
+                var todoTask = {
+                    TodoTaskId: $("#hdnTodoTaskId").val() == "" ? 0 : $("#hdnTodoTaskId").val(),
+                    Title: $("#txtTitle").val(),
+                    DueDate: $("#txtDueDate").val()
+                };
+
+                var data = {
+                    todoTask: todoTask
+                }
+
+                $.ajax({
+                    url: '@Url.Action("SaveTodoTask", "Home")',
+                    type: "POST",
+                    dataType: "json",
+                    data: JSON.stringify(data),
+                    contentType: "application/json; charset=utf-8;",
+                    success: function (result) {
+                        swal({
+                            title: "Good job!",
+                            text: "Your task saved successfully!",
+                            icon: "success",
+                            button: "Aww yiss!",
+                        });
+                        $("#hdnTodoTaskId").val("");
+                        $("#exampleModalLabel").html("Add Task");
+                        $('#modalAddTask').modal('toggle');
+                        $('#tblTasks').DataTable().ajax.reload();
+                    }
+                })
+
+            },
+        }
+    </script>
+
+}
+
